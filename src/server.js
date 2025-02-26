@@ -1,33 +1,48 @@
-const express = require('express');
-const fetch = require('node-fetch');
+const express = require("express");
+const fetch = require("node-fetch");
 const app = express();
-const cors = require('cors');
+const cors = require("cors");
 const dotenv = require("dotenv");
 
 dotenv.config();
 app.use(cors());
 
-app.get('/api/proxy', async (req, res) => {
-
+app.get("/api/proxy", async (req, res) => {
   try {
     const externalUrl = req.query.url;
 
     if (!externalUrl) {
-      return res.status(400).json({ error: 'Missing URL parameter' });
+      return res.status(400).json({ error: "Missing URL parameter" });
     }
 
     const response = await fetch(externalUrl);
 
     if (!response.ok) {
-      return res.status(response.status).json({ error: `Failed to fetch data from ${externalUrl}` });
+      return res
+        .status(response.status)
+        .json({ error: `Failed to fetch data from ${externalUrl}` });
     }
 
-    const data = await response.json();
+    const contentType = response.headers.get("content-type");
 
-    res.status(200).json(data);
+    if (contentType.includes("application/json")) {
+      const data = await response.json();
+      res.status(200).json(data);
+    } else if (
+      contentType.includes('image/') || 
+      contentType.includes('video/') || 
+      contentType.includes('audio/')
+    ) {
+      res.setHeader("Content-Type", contentType);
+      response.body.pipe(res);
+    } else {
+      res.status(400).json({ error: "Unsupported content type" });
+    }
   } catch (error) {
-    console.error('Error fetching data:', error);
-    res.status(500).json({ error: 'Failed to fetch data', details: error.message });
+    console.error("Error fetching data:", error);
+    res
+      .status(500)
+      .json({ error: "Failed to fetch data", details: error.message });
   }
 });
 
